@@ -1,0 +1,11 @@
+build/
+models/
+Debug/
+.vs/
+*.exe
+*.pdb
+*.ilk
+*.dll
+assets/
+models/
+

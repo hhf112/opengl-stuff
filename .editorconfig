@@ -1,0 +1,5 @@
+root = true
+
+[*.cpp] # Replace with your target file extensions or use [*]
+indent_style = space
+indent_size = 4

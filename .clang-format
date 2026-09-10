@@ -1,0 +1,9 @@
+# BasedOnStyle: google
+# BasedOnStyle: LLVM
+BasedOnStyle: Microsoft
+# BasedOnStyle: Chrome
+# BasedOnStyle: Mozilla
+# BasedOnStyle: GNU
+IndentWidth: 4
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: Empty
