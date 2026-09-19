@@ -4,13 +4,13 @@
 
 void Renderer::Draw(Renderable &renderable)
 {
-    if (renderable.renderOpts.show_boundaries)
+    if (renderable.renderOpts.showBoundaries)
     {
-        Shader &lineShader = globalShaders[LineShader];
+        Shader &lineShader = *renderable.renderOpts.lineShaer;
         lineShader.use();
         lineShader.setMat4("model", renderable.getTransform());
-        lineShader.setMat4("view", renderable.renderOpts.view);
-        lineShader.setMat4("projection", renderable.renderOpts.projection);
+        lineShader.setMat4("view", view);
+        lineShader.setMat4("projection", projection);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);
         for (auto &mesh : renderable.getLineMeshes())
@@ -20,8 +20,8 @@ void Renderer::Draw(Renderable &renderable)
 
     renderable.renderOpts.shader->use();
     renderable.renderOpts.shader->setMat4("model", renderable.getTransform());
-    renderable.renderOpts.shader->setMat4("view", renderable.renderOpts.view);
-    renderable.renderOpts.shader->setMat4("projection", renderable.renderOpts.projection);
+    renderable.renderOpts.shader->setMat4("view", view);
+    renderable.renderOpts.shader->setMat4("projection", projection);
 
-    renderable.getModel()->Draw(*renderable.renderOpts.shader, renderable.renderOpts.format);
+    renderable.getModel().Draw(*renderable.renderOpts.shader, renderable.renderOpts.format);
 }

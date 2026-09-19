@@ -1,65 +1,70 @@
 #include <parkour/camera.hpp>
 
-Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
-    : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY)
+Camera::Camera(glm::vec3 position, glm::vec3 worldUp, float yaw, float pitch)
+    : Position{position}, mWorldUp{worldUp}, mYaw{yaw}, mPitch{pitch},
+      mFront(glm::vec3(0.0f, 0.0f, -1.0f))
 {
-    Position = position;
-    WorldUp = up;
-    Yaw = yaw;
-    Pitch = pitch;
     updateCameraVectors();
 }
 
-void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
+void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime)
 {
     float velocity = MovementSpeed * deltaTime;
     if (direction == FORWARD)
-        Position += Front * velocity;
+        Position += mFront * velocity;
     if (direction == BACKWARD)
-        Position -= Front * velocity;
+        Position -= mFront * velocity;
     if (direction == LEFT)
-        Position -= Right * velocity;
+        Position -= mRight * velocity;
     if (direction == RIGHT)
-        Position += Right * velocity;
-    if (direction == RIGHT)
-        Position += Right * velocity;
+        Position += mRight * velocity;
     if (direction == UP)
         Position += glm::vec3(0.0f, 1.0f, 0.0f) * velocity;
 }
 
-void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
+void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainmPitch)
 {
     xoffset *= MouseSensitivity;
     yoffset *= MouseSensitivity;
 
-    Yaw += xoffset;
-    Pitch += yoffset;
+    mYaw += xoffset;
+    mPitch += yoffset;
 
-    // make sure that when pitch is out of bounds, screen doesn't get flipped
-    if (constrainPitch)
+    if (constrainmPitch)
     {
-        if (Pitch > 89.0f)
-            Pitch = 89.0f;
-        if (Pitch < -89.0f)
-            Pitch = -89.0f;
+        if (mPitch > 89.0f)
+            mPitch = 89.0f;
+        if (mPitch < -89.0f)
+            mPitch = -89.0f;
     }
 
-    // update Front, Right and Up Vectors using the updated Euler angles
     updateCameraVectors();
 }
 
 void Camera::updateCameraVectors()
 {
-    // calculate the new Front vector
+    // calculate the new mFront vector
     glm::vec3 front;
-    front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-    front.y = sin(glm::radians(Pitch));
-    front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-    Front = glm::normalize(front);
-    // also re-calculate the Right and Up vector
-    Right =
-        glm::normalize(glm::cross(Front, WorldUp)); // normalize the vectors, because their length
-                                                    // gets closer to 0 the more you look up or down
-                                                    // which results in slower movement.
-    Up = glm::normalize(glm::cross(Right, Front));
+    front.x = cos(glm::radians(mYaw)) * cos(glm::radians(mPitch));
+    front.y = sin(glm::radians(mPitch));
+    front.z = sin(glm::radians(mYaw)) * cos(glm::radians(mPitch));
+    mFront = glm::normalize(front);
+    // also re-calculate the mRight and mUp vector
+    mRight =
+        glm::normalize(glm::cross(mFront, mWorldUp)); // normalize the vectors, because their length
+                                                      // gets closer to 0 the more you look up or
+                                                      // down which results in slower movement.
+    mUp = glm::normalize(glm::cross(mRight, mFront));
+
+    if (targetSet)
+    {
+        Position = target - tps.radius * mFront;
+    }
+}
+
+void Camera::updateTarget(const glm::vec3 &position)
+{
+    target = position;
+    targetSet = true;
+    updateCameraVectors();
 }

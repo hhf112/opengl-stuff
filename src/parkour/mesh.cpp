@@ -2,13 +2,13 @@
 #include <string>
 
 Mesh::Mesh(std::vector<Vertex> _vertices, std::vector<unsigned int> _indices,
-           std::vector<Texture> _textures, Hitbox _hitbox)
+           std::vector<Texture> _textures)
     : vertices{_vertices}, indices{_indices}, textures{_textures}
 {
     setupMesh();
 }
 
-void Mesh::Draw(Shader &shader, GLenum format)
+void Mesh::Draw(Shader &shader, GLenum format) const
 {
     for (unsigned int i = 0; i < textures.size(); i++)
     {

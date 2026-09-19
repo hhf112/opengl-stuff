@@ -7,92 +7,127 @@
 #include <parkour/hitbox.hpp>
 
 #include <glad/glad.h>
-
-#include <memory>
+#include <parkour/const.hpp>
 
 struct RenderOpts
 {
     Shader *shader = nullptr;
-    glm::mat4 view;
-    glm::mat4 projection;
+    Shader *lineShaer = nullptr;
     GLenum format = GL_TRIANGLES;
-    bool show_boundaries = false;
+    bool showBoundaries = false;
 };
 
 class Renderable
 {
   public:
+    glm::vec3 Position{0.0f};
+    glm::vec3 Scale{glm::vec3(1.0f)};
+    Camera camera;
     RenderOpts renderOpts;
-    float movementSpeed;
+    float movementSpeed = Game::ctrWalkSpeed;
+    float mouseSensitivity = Game::mouseSens;
 
-    Renderable(std::shared_ptr<Model> asset, glm::mat4 transform = glm::mat4(1.0))
-        : mModel{asset}, mTransform{transform}
+    // constructor
+    Renderable(Model &asset, glm::vec3 position, glm::vec3 scale, float yaw, float pitch)
+        : Position{position}, mYaw{yaw}, mPitch{pitch}, mModel{asset}, mBounds{asset.getBounds()}
+
     {
-
-        mBoundaries = mModel->mBounds;
+        camera.updateTarget(Position + glm::vec3(0.0f, Game::PlayerHeight, 0.0f));
+        updateUnitVecsFromCamera();
     }
 
-    Renderable(const std::string &path, glm::mat4 transform = glm::mat4(1.0))
-        : mTransform{transform}
+    void ProcessKeyboard(CameraMovement direction, float deltaTime)
     {
-        mModel = std::make_shared<Model>(path);
-        mBoundaries = mModel->mBounds;
+        float velocity = movementSpeed * deltaTime;
+        if (direction == FORWARD)
+            translate(glm::vec3(0.0f, 0.0f, velocity));
+        if (direction == BACKWARD)
+            translate(glm::vec3(0.0f, 0.0f, -velocity));
+        if (direction == LEFT)
+            translate(glm::vec3(-velocity, 0.0f, 0.0f));
+        if (direction == RIGHT)
+            translate(glm::vec3(velocity, 0.0f, 0.0f));
+        if (direction == UP)
+            translate(glm::vec3(0.0f, velocity, 0.0f));
+
+        camera.updateTarget(Position + glm::vec3(0.0f, Game::PlayerHeight, 0.0f));
     }
 
-    void BindCamera(Camera *camera_ptr)
+    void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
     {
-        camera = camera_ptr;
-        camera->Position = mBoundaries.center + glm::vec3(0.0f, mBoundaries.getHeight() / 2, 1.0f);
+        camera.ProcessMouseMovement(xoffset, yoffset, constrainPitch);
+        updateUnitVecsFromCamera();
     }
 
-    const glm::mat4 &getTransform()
+    void updateUnitVecsFromCamera()
     {
-        return mTransform;
+        const glm::vec3 &front = camera.getFront();
+        const glm::vec3 &right = camera.getRight();
+        // up is always world up (i.e y axis)
+
+        mFront = glm::vec3(front.x, 0.0f, front.z);
+        mRight = glm::vec3(right.x, 0.0f, right.z);
     }
 
-    Renderable &rotate(float angle, const glm::vec3 &axis)
+    glm::mat4 getTransform()
     {
-        auto rotation = glm::rotate(glm::mat4(1.0), angle, axis);
-        mTransform = rotation * mTransform;
-        mBoundaries.center = rotation * glm::vec4(mBoundaries.center, 100.0f);
+        auto transform = glm::mat4(1.0f);
+        transform = glm::translate(transform, Position);
+        transform = glm::rotate(transform, glm::radians(mYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        transform = glm::scale(transform, Scale);
+
+        return transform;
+    }
+
+    Renderable &translate(const glm::vec3 &vec)
+    {
+        Position += mRight * vec.x + mUp * vec.y + mFront * vec.z;
+        camera.updateTarget(Position + glm::vec3(0.0f, Game::PlayerHeight, 0.0f));
+
         return *this;
     }
 
-    Renderable &translate(const glm::vec3 &mag)
+    Renderable &scaleBy(const glm::vec3 &factor)
     {
-        auto translation = glm::translate(glm::mat4(1.0), mag);
-        mTransform = translation * mTransform;
-        // camera->Position = translation * glm::vec4(camera->Position, 1.0f);
-        mBoundaries.center = translation * glm::vec4(mBoundaries.center, 1.0f);
+        Scale *= factor;
         return *this;
     }
-    Renderable &scale(const glm::vec3 &factor)
-    {
 
-        auto scale = glm::scale(glm::mat4(1.0), factor);
-        mTransform = scale * mTransform;
-        mBoundaries.center = scale * glm::vec4(mBoundaries.center, 1.0f);
-        return *this;
-    }
-    std::vector<Mesh> &getLineMeshes()
+    const std::vector<Mesh> &getLineMeshes()
     {
         return mLineMeshes;
     }
-
-    std::shared_ptr<Model> getModel()
+    Model &getModel()
     {
         return mModel;
     }
 
-    const Hitbox &getBounds()
+    Hitbox getBounds()
     {
-        return mBoundaries;
+        return mBounds;
+    }
+
+    float getHeight() const
+    {
+        return mBounds.getHeight();
+    }
+
+    float getWidth() const
+    {
+        return mBounds.getWidth();
+    }
+    float getDepth() const
+    {
+        return mBounds.getDepth();
     }
 
   private:
-    Hitbox mBoundaries;
-    Camera *camera;
-    glm::mat4 mTransform;
     std::vector<Mesh> mLineMeshes;
-    std::shared_ptr<Model> mModel;
+    glm::vec3 mFront;
+    glm::vec3 mUp{0.0f, 1.0f, 0.0f};
+    glm::vec3 mRight;
+    Hitbox mBounds;
+    Model &mModel;
+    float mYaw = 0.0f;
+    float mPitch = 0.0f;
 };

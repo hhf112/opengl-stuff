@@ -1,13 +1,14 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "parkour/const.hpp"
 #include <glad/glad.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-enum Camera_Movement
+enum CameraMovement
 {
     FORWARD,
     BACKWARD,
@@ -16,57 +17,77 @@ enum Camera_Movement
     UP
 };
 
-const float YAW = -90.0f;
-const float PITCH = 0.0f;
-const float SPEED = 10.0f;
-const float SENSITIVITY = 0.1f;
-const float ZOOM = 45.0f;
-
 class Camera
 {
   public:
-    glm::vec3 Position;
-    glm::vec3 Front;
-    glm::vec3 Up;
-    glm::vec3 Right;
-    glm::vec3 WorldUp;
+    glm::vec3 target;
+    bool targetSet = false;
+    struct sphere
+    {
+        float radius = 0.8 * Game::PlayerHeight;
+    };
+    sphere tps;
 
-    float Yaw;
-    float Pitch;
+    glm::vec3 Position{0.0f, 0.0f, 0.0f};
+    float MovementSpeed{Game::ctrWalkSpeed};
+    float MouseSensitivity{Game::mouseSens};
 
-    float MovementSpeed;
-    float MouseSensitivity;
-    float fov;
-    float near;
-    float far;
-    float ar;
-
+    Camera() = default;
     // constructor with vectors
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
-           glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
+    Camera(glm::vec3 position, glm::vec3 worldUp, float yaw, float pitch);
 
     // returns the view matrix calculated using Euler Angles and the LookAt Matrix
     glm::mat4 GetViewMatrix()
     {
-        return glm::lookAt(Position, Position + Front, Up);
-    }
+        if (!targetSet)
+            return glm::lookAt(Position, Position + mFront, mUp);
+        else
+            return glm::lookAt(Position, target, mUp);
 
-    glm::mat4 GetProjectionMatrice()
-    {
-        return glm::perspective(fov, ar, near, far);
     }
 
     // processes input received from any keyboard-like input system. Accepts input
     // parameter in the form of camera defined ENUM (to abstract it from windowing
     // systems)
-    void ProcessKeyboard(Camera_Movement direction, float deltaTime);
+    void ProcessKeyboard(CameraMovement direction, float deltaTime);
 
     // processes input received from a mouse input system. Expects the offset
     // value in both the x and y direction.
     void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 
-  private:
-    // calculates the front vector from the Camera's (updated) Euler Angles
     void updateCameraVectors();
+    void updateTarget(const glm::vec3 &position);
+
+    const glm::vec3 &getFront()
+    {
+        return mFront;
+    }
+    const glm::vec3 &getUp()
+    {
+        return mUp;
+    }
+    const glm::vec3 &getRight()
+    {
+        return mRight;
+    }
+
+    float getYaw()
+    {
+        return mYaw;
+    }
+    float getPitch()
+    {
+        return mPitch;
+    }
+
+  private:
+    glm::vec3 mFront;
+    glm::vec3 mUp;
+    glm::vec3 mRight;
+    glm::vec3 mWorldUp{0.0f, 1.0f, 0.0f};
+    float mYaw{-90.0f};
+    float mPitch{0.0f};
+
+    // calculates the front vector from the Camera's (updated) Euler Angles
 };
 #endif

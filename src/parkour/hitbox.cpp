@@ -26,5 +26,5 @@ Mesh HitboxMeshConstructor::createMeshFromHitbox(Hitbox &hitbox)
 	HITBOX
 #endif
 
-    return Mesh(hitbox.vertices, indices, {});
+    return Mesh(hitbox.getVertices(), indices, {});
 }

@@ -15,7 +15,6 @@
 
 #define MAX_BONE_INFLUENCE 4
 
-
 class Mesh
 {
   public:
@@ -28,10 +27,10 @@ class Mesh
 
     // constructor
     Mesh(std::vector<Vertex> _vertices, std::vector<unsigned int> _indices,
-         std::vector<Texture> _textures = std::vector<Texture>(), Hitbox _hitbox = Hitbox());
+         std::vector<Texture> _textures = std::vector<Texture>());
 
     // render the mesh
-    void Draw(Shader& shader, GLenum format = GL_TRIANGLES);
+    void Draw(Shader &shader, GLenum format = GL_TRIANGLES) const;
 
   private:
     // render data

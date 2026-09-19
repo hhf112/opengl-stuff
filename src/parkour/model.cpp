@@ -1,5 +1,6 @@
 // #define DEBUG
 #include <assimp/postprocess.h>
+#include <limits>
 #include <parkour/model.hpp>
 
 #include <iostream>
@@ -7,118 +8,28 @@
 #include "assimp/material.h"
 #include "parkour/util.hpp"
 
-#define MESH_INFO                                                                                  \
-    std::cerr << "<mesh index>\n";                                                                 \
-    std::cerr << "found bones: " << std::boolalpha << mesh->HasBones() << '\n';                    \
-    std::cerr << "diffuse textures: " << material->GetTextureCount(aiTextureType_DIFFUSE) << '\n'; \
-    std::cerr << "base colors: " << material->GetTextureCount(aiTextureType_BASE_COLOR) << '\n';   \
-    aiColor3D color(0.f, 0.f, 0.f);                                                                \
-    if (material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)                               \
-        std::cerr << "diffuse color: " << color.r << ", " << color.g << ", " << color.b << '\n';   \
-    aiColor4D baseColor;                                                                           \
-    if (material->Get(AI_MATKEY_BASE_COLOR, baseColor) == AI_SUCCESS)                              \
-        std::cerr << "base color factor: " << baseColor.r << ", " << baseColor.g << ", "           \
-                  << baseColor.b << ", " << baseColor.a << '\n';                                   \
-    std::cerr << "found vertex colors: " << mesh->HasVertexColors(0) << std::boolalpha << "\n\n";
-
-unsigned int Model::textureFromEmbedding(const aiScene *scene, unsigned int index)
+void Model::loadModel(std::string const &path)
 {
-    aiTexture *assimpTexture = scene->mTextures[index];
-
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-
-    if (assimpTexture->mHeight == 0)
+    Assimp::Importer importer;
+    importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
+    const aiScene *scene = importer.ReadFile(
+        path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_TransformUVCoords |
+                  aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
-        int width, height, nrComponents;
-        unsigned char *data =
-            stbi_load_from_memory(reinterpret_cast<unsigned char *>(assimpTexture->pcData),
-                                  assimpTexture->mWidth, &width, &height, &nrComponents, 0);
-
-        if (data)
-        {
-            GLenum format = (nrComponents == 4) ? GL_RGBA : GL_RGB;
-            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE,
-                         data);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            stbi_image_free(data);
-        }
-    }
-    else
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, assimpTexture->mWidth, assimpTexture->mHeight, 0,
-                     GL_BGRA, GL_UNSIGNED_BYTE, assimpTexture->pcData);
-        glGenerateMipmap(GL_TEXTURE_2D);
+        std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
+        return;
     }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    directory = path.substr(0, path.find_last_of('/'));
 
-    std::cerr << "model.h: texture loaded from embedding\n";
+    glm::vec3 min(std::numeric_limits<float>::max());
+    glm::vec3 max(std::numeric_limits<float>::lowest());
 
-    return textureID;
+    processNode(scene->mRootNode, scene, glm::mat4(1.0), min, max);
+    mBounds = std::move(Hitbox(min, max));
 }
 
-unsigned int Model::textureFromFile(const char *path, const std::string &directory, bool gamma)
-{
-    std::string filename = std::string(path);
-    filename = directory + '/' + filename;
-
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-
-    int width, height, nrComponents;
-    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
-    if (data)
-    {
-        GLenum format;
-
-        switch (nrComponents)
-        {
-        case 1:
-            format = GL_RED;
-            break;
-        case 2:
-            format = GL_RG;
-            break;
-        case 3:
-            format = GL_RGB;
-            break;
-        case 4:
-            format = GL_RGBA;
-            break;
-        default:
-            stbi_image_free(data);
-            std::cerr << "found " << nrComponents << " components.\n";
-            std::cerr << "Unsupported number of image channels.\n";
-            return -1;
-        }
-
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        stbi_image_free(data);
-#ifdef DEBUG
-        std::cerr << "Texture loaded from " << filename << '\n';
-#endif
-    }
-    else
-    {
-        std::cout << "ERROR: Texture failed to load at path: " << path << std::endl;
-        stbi_image_free(data);
-    }
-
-    return textureID;
-}
 
 std::vector<Texture> Model::loadMaterialTextures(const aiScene *scene, aiMaterial *mat,
                                                  aiTextureType type, std::string typeName)
@@ -167,7 +78,25 @@ std::vector<Texture> Model::loadMaterialTextures(const aiScene *scene, aiMateria
     return textures;
 }
 
-Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene, const glm::mat4 &transform)
+
+void Model::processNode(aiNode *node, const aiScene *scene, const glm::mat4 &parentTransform,
+                        glm::vec3 &min, glm::vec3 &max)
+{
+    glm::mat4 currentTransform =
+        parentTransform * AssimpGLMHelpers::AiMatrixToGlm(node->mTransformation);
+    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
+        mMeshes.emplace_back(processMesh(mesh, scene, currentTransform, min, max));
+    }
+    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        processNode(node->mChildren[i], scene, currentTransform, min, max);
+    }
+}
+
+Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene, const glm::mat4 &transform,
+                        glm::vec3 &min, glm::vec3 &max)
 {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
@@ -180,8 +109,8 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene, const glm::mat4 &tra
             transform * glm::vec4(AssimpGLMHelpers::aiVec3ToGLM(mesh->mVertices[i]), 1.0f);
 
         // post transform
-        mBounds.min = glm::min(mBounds.min, vertex.Position);
-        mBounds.max = glm::max(mBounds.max, vertex.Position);
+        min = glm::min(min, vertex.Position);
+        max = glm::max(max, vertex.Position);
 
         // normals
         if (mesh->HasNormals())
@@ -232,50 +161,100 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene, const glm::mat4 &tra
 
     textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
 
-#ifdef DEBUG
-    MESH_INFO
-#endif
-
     return Mesh(vertices, indices, textures);
 }
 
-void Model::processNode(aiNode *node, const aiScene *scene, const glm::mat4 &parentTransform)
+
+unsigned int Model::textureFromEmbedding(const aiScene *scene, unsigned int index)
 {
-    glm::mat4 currentTransform =
-        parentTransform * AssimpGLMHelpers::AiMatrixToGlm(node->mTransformation);
-    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    aiTexture *assimpTexture = scene->mTextures[index];
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    if (assimpTexture->mHeight == 0)
     {
-        aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-        mMeshes.emplace_back(processMesh(mesh, scene, currentTransform));
+        int width, height, nrComponents;
+        unsigned char *data =
+            stbi_load_from_memory(reinterpret_cast<unsigned char *>(assimpTexture->pcData),
+                                  assimpTexture->mWidth, &width, &height, &nrComponents, 0);
+
+        if (data)
+        {
+            GLenum format = (nrComponents == 4) ? GL_RGBA : GL_RGB;
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE,
+                         data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            stbi_image_free(data);
+        }
     }
-    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    else
     {
-        processNode(node->mChildren[i], scene, currentTransform);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, assimpTexture->mWidth, assimpTexture->mHeight, 0,
+                     GL_BGRA, GL_UNSIGNED_BYTE, assimpTexture->pcData);
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    return textureID;
 }
 
-void Model::loadModel(std::string const &path)
+unsigned int Model::textureFromFile(const char *path, const std::string &directory, bool gamma)
 {
-    Assimp::Importer importer;
-    importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
-    const aiScene *scene = importer.ReadFile(
-        path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_TransformUVCoords |
-                  aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    std::string filename = std::string(path);
+    filename = directory + '/' + filename;
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+    if (data)
     {
-        std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
-        return;
+        GLenum format;
+
+        switch (nrComponents)
+        {
+        case 1:
+            format = GL_RED;
+            break;
+        case 2:
+            format = GL_RG;
+            break;
+        case 3:
+            format = GL_RGB;
+            break;
+        case 4:
+            format = GL_RGBA;
+            break;
+        default:
+            stbi_image_free(data);
+            std::cerr << "ERROR: found " << nrComponents
+                      << " components.\nUnsupported number of image channels.\n";
+            return -1;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "ERROR: Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
     }
 
-    directory = path.substr(0, path.find_last_of('/'));
-
-    std::cerr << "model loaded from: " << path << '\n';
-    std::cerr << "found animations: " << std::boolalpha << scene->HasAnimations() << '\n';
-    std::cerr << '\n';
-
-    processNode(scene->mRootNode, scene, glm::mat4(1.0));
-    mBounds = std::move(Hitbox(mBounds.min, mBounds.max));
-
-    std::cerr << textures_loaded.size() << " texture(s) loaded.\n";
-    std::cerr << mMeshes.size() << " mesh(s) processed.\n";
+    return textureID;
 }

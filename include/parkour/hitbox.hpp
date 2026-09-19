@@ -8,55 +8,86 @@
 
 class Hitbox
 {
-    float m_width;
-    float m_height;
-    float m_depth;
+
+    glm::vec3 mMin{std::numeric_limits<float>::max()};
+    glm::vec3 mMax{std::numeric_limits<float>::lowest()};
+    glm::vec3 mCenter;
+    float mWidth;
+    float mHeight;
+    float mDepth;
 
   public:
-    glm::vec3 min{std::numeric_limits<float>::max()};
-    glm::vec3 max{std::numeric_limits<float>::lowest()};
-	glm::vec3 center;
-    std::vector<Vertex> vertices;
     Hitbox() = default;
-
-    Hitbox(glm::vec3 &_min, glm::vec3 &_max, const glm::mat4 &transform = glm::mat4(1.0f))
-        : min{_min}, max{_max}
+    Hitbox(glm::vec3 &min, glm::vec3 &max, const glm::mat4 &transform = glm::mat4(1.0f))
+        : mMin{min}, mMax{max}
     {
+        mHeight = std::abs(mMax.y - mMin.y);
+        mWidth = std::abs(mMax.x - mMin.x);
+        mDepth = std::abs(mMax.z - mMin.z);
+        mCenter = glm::vec3(mMax.x - mWidth / 2, mMax.y - mHeight / 2, mMax.z - mDepth / 2);
+    }
+
+    glm::vec3 getMin()
+    {
+        return mMin;
+    }
+
+    glm::vec3 getMax()
+    {
+        return mMax;
+    }
+
+    glm::vec3 getCenter()
+    {
+        return mCenter;
+    }
+
+    std::vector<Vertex> getVertices()
+    {
+
+        std::vector<Vertex> vertices;
         vertices.reserve(8);
 
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(min.x, min.y, min.z), 1.0))); // 0: min, min, min
+            Vertex(glm::vec4(glm::vec3(mMin.x, mMin.y, mMin.z), 1.0))); // 0: mMin, mMin, mMin
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(max.x, min.y, min.z), 1.0))); // 1: max, min, min
+            Vertex(glm::vec4(glm::vec3(mMax.x, mMin.y, mMin.z), 1.0))); // 1: mMax, mMin, mMin
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(max.x, max.y, min.z), 1.0))); // 2: max, max, min
+            Vertex(glm::vec4(glm::vec3(mMax.x, mMax.y, mMin.z), 1.0))); // 2: mMax, mMax, mMin
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(min.x, max.y, min.z), 1.0))); // 3: min, max, min
+            Vertex(glm::vec4(glm::vec3(mMin.x, mMax.y, mMin.z), 1.0))); // 3: mMin, mMax, mMin
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(min.x, min.y, max.z), 1.0))); // 4: min, min, max
+            Vertex(glm::vec4(glm::vec3(mMin.x, mMin.y, mMax.z), 1.0))); // 4: mMin, mMin, mMax
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(max.x, min.y, max.z), 1.0))); // 5: max, min, max
+            Vertex(glm::vec4(glm::vec3(mMax.x, mMin.y, mMax.z), 1.0))); // 5: mMax, mMin, mMax
         vertices.emplace_back(
-            Vertex(transform * glm::vec4(glm::vec3(max.x, max.y, max.z), 1.0))); // 6: max, max, max
-        vertices.emplace_back(Vertex(
-            transform * glm::vec4(glm::vec3(min.x, max.y, max.z), 1.0))); // 7: min, max, max    }
-        m_height = std::abs(max.y - min.y);
-        m_width = std::abs(max.x - min.x);
-        m_depth = std::abs(max.z - min.z);
-		center = glm::vec3(max.x - m_width/2, max.y - m_height/2, max.z - m_depth/2);
+            Vertex(glm::vec4(glm::vec3(mMax.x, mMax.y, mMax.z), 1.0))); // 6: mMax, mMax, mMax
+        vertices.emplace_back(
+            Vertex(glm::vec4(glm::vec3(mMin.x, mMax.y, mMax.z), 1.0))); // 7: mMin, mMax, mMax
+
+        return vertices;
+    }
+
+    void updateWithTransform(const glm::mat4 &transform)
+    {
+        mMin = transform * glm::vec4(mMin, 1.0);
+        mMax = transform * glm::vec4(mMax, 1.0);
+        mHeight = std::abs(mMax.y - mMin.y);
+        mWidth = std::abs(mMax.x - mMin.x);
+        mDepth = std::abs(mMax.z - mMin.z);
     }
 
     float getHeight() const
     {
-        return m_height;
+        return mHeight;
     }
 
     float getWidth() const
     {
-        return m_width;
+        return mWidth;
     }
     float getDepth() const
     {
-        return m_depth;
+        return mDepth;
     }
 };

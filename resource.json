@@ -1,0 +1,38 @@
+{
+	"shaders" :  [
+		"MeshDefault", "./shaders/vertex.vert", "./shaders/fragment.frag",
+		"LineShader", "./shaders/hitbox.vert" ,"./shaders/hitbox.frag"
+	],
+	"models" : [
+		"Player", "C:/Users/ASUS/OneDrive/Desktop/parkour/models/hu_tao_3d_model/scene.gltf"
+	],
+	"meshes": {
+		"quad": {
+			"vertices": {
+				"positions": [
+					-1.0, 0.0, -1.0,
+					1.0, 0.0, -1.0,
+					1.0, 0.0, 1.0,
+					-1.0, 0.0, 1.0
+				]
+			},
+			"indices": [0, 1, 2, 0, 3, 2]
+		},
+		"axes": {
+			"vertices": {
+				"positions": [
+					100.0, 0.0, 0.0,
+					0.0, 100.0, 0.0,
+					0.0, 0.0, 100.0,
+					0.0, 0.0, 0.0
+				],
+				"colors" : [
+					1.0, 0.0, 0.0,
+					0.0, 1.0, 0.0,
+					0.0, 0.0, 1.0
+				]
+			},
+			"indices": [3, 0, 3, 1, 3, 2]
+		}
+	}
+}

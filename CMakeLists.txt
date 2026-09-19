@@ -22,6 +22,7 @@ target_include_directories(Parkour PRIVATE
 	D:/include/glad/
 	D:/include/assimp/
 	D:/include/glfw-3.5.1/
+	D:/include/nlohmann/
 	${CMAKE_SOURCE_DIR}/include/
 )
 

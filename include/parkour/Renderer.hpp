@@ -1,17 +1,13 @@
+#pragma once
 #include "parkour/shader.hpp"
 #include <parkour/Renderable.hpp>
-#include <vector>
 
 class Renderer
 {
   public:
     Shader boundary_shader;
-    std::vector<Shader> globalShaders;
-    enum ShaderIndex
-    {
-        MeshDefault,
-        LineShader,
-    };
+	glm::mat4 view;
+	glm::mat4 projection;
 
     void Draw(Renderable &Renderable);
 };
